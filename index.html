@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anti-Gravity Simulation Engine</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Modern Reset and Base Styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #03030c;
+            font-family: 'Outfit', sans-serif;
+            color: #e0e0ec;
+        }
+
+        /* Deep Cosmic Background Gradient */
+        #bg-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 50%, rgba(13, 11, 33, 0.4) 0%, rgba(3, 3, 12, 1) 100%);
+            z-index: 1;
+            pointer-events: none;
+            transition: background 1s ease;
+        }
+
+        /* Canvas occupies full background */
+        #physics-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 0;
+            cursor: crosshair;
+        }
+
+        /* Responsive Layout Grid */
+        #app-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: row;
+            padding: 24px;
+            z-index: 10;
+            pointer-events: none; /* Let canvas capture clicks elsewhere */
+        }
+
+        /* Control Panel - Glassmorphic HUD */
+        .control-panel {
+            width: 380px;
+            height: 100%;
+            max-height: calc(100vh - 48px);
+            background: rgba(10, 8, 28, 0.45);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            padding: 30px;
+            pointer-events: auto; /* Enable controls interaction */
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+            z-index: 100;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+        }
+
+        .control-panel:hover {
+            box-shadow: 0 12px 40px 0 rgba(0, 240, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        /* Custom Scrollbar for Controls Panel */
+        .control-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+        .control-panel::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .control-panel::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+        }
+        .control-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Panel Header with Sci-Fi Aesthetic */
+        .header {
+            margin-bottom: 28px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 1.6rem;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, #00f0ff 0%, #ff00ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 240, 255, 0.15);
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            font-size: 0.8rem;
+            font-weight: 300;
+            color: #8c8ba5;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+
+        .section-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: #d1d1e6;
+            margin: 20px 0 12px 0;
+            text-transform: uppercase;
+            border-left: 2px solid #00f0ff;
+            padding-left: 8px;
+            transition: border-color 0.5s ease;
+        }
+
+        /* Styled Input Groups */
+        .control-group {
+            margin-bottom: 18px;
+        }
+
+        .control-label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .control-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #b0afd0;
+        }
+
+        .control-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.8rem;
+            color: #00f0ff;
+            font-weight: 700;
+            transition: color 0.5s ease;
+        }
+
+        /* Slider Styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 5px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            transition: background 0.3s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #00f0ff;
+            cursor: pointer;
+            box-shadow: 0 0 8px #00f0ff;
+            transition: transform 0.1s, background-color 0.5s, box-shadow 0.5s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.3);
+        }
+
+        /* Cosmic Palette Buttons */
+        .theme-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .theme-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 10px 6px;
+            color: #a09fbe;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .theme-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        .theme-btn.active {
+            background: rgba(0, 240, 255, 0.1);
+            border-color: #00f0ff;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
+        }
+
+        .theme-preview {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            box-shadow: 0 0 4px rgba(255, 255, 255, 0.2);
+        }
+
+        /* Glowing Switch for Black Hole Mode */
+        .switch-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-bottom: 18px;
+            transition: all 0.3s ease;
+        }
+
+        .switch-row:hover {
+            border-color: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider-switch {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.15);
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider-switch:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: #fff;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider-switch {
+            background-color: #00f0ff;
+            box-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
+        }
+
+        input:checked + .slider-switch:before {
+            transform: translateX(24px);
+        }
+
+        /* Action Buttons */
+        .btn-action {
+            width: 100%;
+            background: linear-gradient(135deg, rgba(255, 0, 128, 0.15) 0%, rgba(160, 32, 240, 0.15) 100%);
+            border: 1px solid rgba(255, 0, 127, 0.3);
+            color: #ff007f;
+            border-radius: 12px;
+            padding: 14px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 1.5px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            text-align: center;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 15px rgba(255, 0, 127, 0.05);
+        }
+
+        .btn-action:hover {
+            transform: translateY(-2px);
+            background: linear-gradient(135deg, rgba(255, 0, 128, 0.25) 0%, rgba(160, 32, 240, 0.25) 100%);
+            border-color: rgba(255, 0, 127, 0.6);
+            color: #fff;
+            box-shadow: 0 6px 20px rgba(255, 0, 127, 0.2);
+        }
+
+        .btn-action:active {
+            transform: translateY(1px);
+        }
+
+        /* Divider */
+        .divider {
+            height: 1px;
+            background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.1), transparent);
+            margin: 20px 0;
+            width: 100%;
+        }
+
+        /* Footer Section */
+        .footer {
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding-top: 15px;
+        }
+
+        .footer-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 10px;
+            color: #b5b5c9;
+            text-decoration: none;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .footer-link:hover {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
+        }
+
+        .footer-link svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
+
+        /* Info Display Card */
+        .info-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-size: 0.75rem;
+            color: #8c8ba5;
+            line-height: 1.4;
+            margin-bottom: 12px;
+            text-align: justify;
+        }
+
+        /* Toggle Panel Button for Mobile Screens */
+        #panel-toggle {
+            display: none;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(10, 8, 28, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: bold;
+            cursor: pointer;
+            pointer-events: auto;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            align-items: center;
+            gap: 8px;
+        }
+
+        #panel-toggle:hover {
+            border-color: #00f0ff;
+        }
+
+        /* Custom Vortex Indicator on Click */
+        #vortex-indicator {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border: 2px dashed rgba(0, 240, 255, 0.4);
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%) rotate(0deg);
+            display: none;
+            z-index: 5;
+            animation: rotateVortex 2s linear infinite;
+        }
+
+        @keyframes rotateVortex {
+            from { transform: translate(-50%, -50%) rotate(0deg); }
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        /* Desktop vs. Mobile Responsiveness */
+        @media (max-width: 768px) {
+            #app-container {
+                padding: 0;
+            }
+
+            .control-panel {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                height: 50vh;
+                max-height: 50vh;
+                border-radius: 20px 20px 0 0;
+                border-left: none;
+                border-right: none;
+                border-bottom: none;
+                transform: translateY(100%);
+            }
+
+            .control-panel.show {
+                transform: translateY(0);
+            }
+
+            #panel-toggle {
+                display: flex;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="physics-canvas"></canvas>
+    
+    <div id="bg-overlay"></div>
+    <div id="vortex-indicator"></div>
+
+    <button id="panel-toggle">
+        <span id="toggle-icon">☰</span> ENGINE HUD
+    </button>
+
+    <div id="app-container">
+        <!-- Glassmorphism Sidebar HUD -->
+        <div class="control-panel" id="sidebar-panel">
+            <div class="header">
+                <h1>ANTI-GRAVITY</h1>
+                <p>Simulation Engine</p>
+            </div>
+
+            <div class="info-card">
+                Vibrant particles are constantly emitted at the bottom boundary. Drag/click anywhere on the viewport to inject massive particle bursts.
+            </div>
+
+            <!-- Anti-Gravity Engine Settings -->
+            <div class="section-title" id="sec-physics">Simulation Forces</div>
+            
+            <div class="control-group">
+                <div class="control-label-row">
+                    <span class="control-label">Anti-Gravity Lift</span>
+                    <span class="control-value" id="val-gravity">0.5</span>
+                </div>
+                <input type="range" id="slider-gravity" min="0.0" max="2.0" step="0.05" value="0.5">
+            </div>
+
+            <div class="control-group">
+                <div class="control-label-row">
+                    <span class="control-label">Wind / Drift Vector</span>
+                    <span class="control-value" id="val-wind">0.0</span>
+                </div>
+                <input type="range" id="slider-wind" min="-1.0" max="1.0" step="0.05" value="0.0">
+            </div>
+
+            <!-- Particle Configuration -->
+            <div class="section-title" id="sec-particles">Particle Engine</div>
+
+            <div class="control-group">
+                <div class="control-label-row">
+                    <span class="control-label">Particle Radius</span>
+                    <span class="control-value" id="val-size">4.0px</span>
+                </div>
+                <input type="range" id="slider-size" min="1.0" max="15.0" step="0.5" value="4.0">
+            </div>
+
+            <div class="control-group">
+                <div class="control-label-row">
+                    <span class="control-label">Spawn Rate</span>
+                    <span class="control-value" id="val-spawn">3</span>
+                </div>
+                <input type="range" id="slider-spawn" min="1" max="10" step="1" value="3">
+            </div>
+
+            <!-- Theme Settings -->
+            <div class="section-title" id="sec-themes">Cosmic Theme</div>
+            <div class="theme-container">
+                <button class="theme-btn active" data-theme="nebula">
+                    <div class="theme-preview" style="background: linear-gradient(to right, #ff007f, #a020f0);"></div>
+                    Nebula
+                </button>
+                <button class="theme-btn" data-theme="supernova">
+                    <div class="theme-preview" style="background: linear-gradient(to right, #ffd700, #ff4500);"></div>
+                    Supernova
+                </button>
+                <button class="theme-btn" data-theme="quantum">
+                    <div class="theme-preview" style="background: linear-gradient(to right, #00ffff, #00ff88);"></div>
+                    Quantum
+                </button>
+            </div>
+
+            <!-- Interactive Features -->
+            <div class="section-title" id="sec-special">Gravitational Manipulation</div>
+            <div class="switch-row">
+                <span class="control-label">Gravity Well (Vortex)</span>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-vortex">
+                    <span class="slider-switch"></span>
+                </label>
+            </div>
+
+            <button class="btn-action" id="btn-clear">CLEAR SIMULATION</button>
+
+            <!-- Dynamic Deployment Footer -->
+            <div class="divider"></div>
+            <div class="footer">
+                <a href="https://github.com/shanukhandala4-cell/anti-gravity-project" target="_blank" class="footer-link" id="link-github">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    View Code on GitHub
+                </a>
+                <a href="https://anti-gravity-project.onrender.com" target="_blank" class="footer-link" id="link-live">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                    </svg>
+                    Live Deployment App
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Simulation Physics Scripts -->
+    <script>
+        // Setup Canvas
+        const canvas = document.getElementById('physics-canvas');
+        const ctx = canvas.getContext('2d');
+        const bgOverlay = document.getElementById('bg-overlay');
+        const vortexIndicator = document.getElementById('vortex-indicator');
+
+        // Setup DOM Control References
+        const sliderGravity = document.getElementById('slider-gravity');
+        const valGravity = document.getElementById('val-gravity');
+        const sliderWind = document.getElementById('slider-wind');
+        const valWind = document.getElementById('val-wind');
+        const sliderSize = document.getElementById('slider-size');
+        const valSize = document.getElementById('val-size');
+        const sliderSpawn = document.getElementById('slider-spawn');
+        const valSpawn = document.getElementById('val-spawn');
+        const toggleVortex = document.getElementById('toggle-vortex');
+        const btnClear = document.getElementById('btn-clear');
+        const panelToggle = document.getElementById('panel-toggle');
+        const sidebarPanel = document.getElementById('sidebar-panel');
+        const toggleIcon = document.getElementById('toggle-icon');
+
+        // Mobile panel drawer toggle
+        panelToggle.addEventListener('click', () => {
+            sidebarPanel.classList.toggle('show');
+            if (sidebarPanel.classList.contains('show')) {
+                toggleIcon.textContent = '✕';
+            } else {
+                toggleIcon.textContent = '☰';
+            }
+        });
+
+        // Event listeners for updating numerical indicators on sliders
+        sliderGravity.addEventListener('input', (e) => {
+            valGravity.textContent = parseFloat(e.target.value).toFixed(2);
+        });
+        sliderWind.addEventListener('input', (e) => {
+            valWind.textContent = parseFloat(e.target.value).toFixed(2);
+        });
+        sliderSize.addEventListener('input', (e) => {
+            valSize.textContent = parseFloat(e.target.value).toFixed(1) + 'px';
+        });
+        sliderSpawn.addEventListener('input', (e) => {
+            valSpawn.textContent = e.target.value;
+        });
+
+        // Theme Palette Config
+        const themes = {
+            nebula: {
+                name: 'Nebula Neon',
+                colors: ['#ff007f', '#a020f0', '#00f0ff', '#ff00ff', '#7000ff'],
+                accent: '#00f0ff',
+                bgGradient: 'radial-gradient(circle at 50% 50%, rgba(13, 11, 33, 0.45) 0%, rgba(3, 3, 12, 1) 100%)',
+                vortexBorder: 'rgba(0, 240, 255, 0.4)'
+            },
+            supernova: {
+                name: 'Supernova Gold',
+                colors: ['#ffd700', '#ff4500', '#ff8c00', '#ffea00', '#ff2200'],
+                accent: '#ffd700',
+                bgGradient: 'radial-gradient(circle at 50% 50%, rgba(38, 18, 5, 0.45) 0%, rgba(6, 2, 0, 1) 100%)',
+                vortexBorder: 'rgba(255, 140, 0, 0.4)'
+            },
+            quantum: {
+                name: 'Quantum Cyan',
+                colors: ['#00ffff', '#00ff88', '#00aaff', '#39ff14', '#00e5ff'],
+                accent: '#00ffff',
+                bgGradient: 'radial-gradient(circle at 50% 50%, rgba(5, 30, 32, 0.45) 0%, rgba(0, 5, 8, 1) 100%)',
+                vortexBorder: 'rgba(0, 255, 136, 0.4)'
+            }
+        };
+
+        let activeTheme = 'nebula';
+
+        // Apply theme colors to control panel accents
+        function applyTheme(themeKey) {
+            activeTheme = themeKey;
+            const theme = themes[themeKey];
+            bgOverlay.style.background = theme.bgGradient;
+            vortexIndicator.style.borderColor = theme.vortexBorder;
+            
+            // Update Accent highlights on sliders, titles, active buttons
+            document.querySelectorAll('.section-title').forEach(el => {
+                el.style.borderColor = theme.accent;
+            });
+            document.querySelectorAll('.control-value').forEach(el => {
+                el.style.color = theme.accent;
+            });
+
+            // Update range slider thumb shadow accent dynamically
+            const thumbStyleId = 'theme-accent-slider-style';
+            let styleEl = document.getElementById(thumbStyleId);
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.id = thumbStyleId;
+                document.head.appendChild(styleEl);
+            }
+            styleEl.innerHTML = `
+                input[type="range"]::-webkit-slider-thumb {
+                    background: ${theme.accent} !important;
+                    box-shadow: 0 0 10px ${theme.accent} !important;
+                }
+                .switch-row input:checked + .slider-switch {
+                    background-color: ${theme.accent} !important;
+                    box-shadow: 0 0 8px ${theme.accent} !important;
+                }
+            `;
+        }
+
+        // Theme Button Selection
+        document.querySelectorAll('.theme-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+                const selectedBtn = e.currentTarget;
+                selectedBtn.classList.add('active');
+                applyTheme(selectedBtn.dataset.theme);
+            });
+        });
+
+        // Initial Theme Apply
+        applyTheme('nebula');
+
+        // Physics State Setup
+        let particles = [];
+        let stars = [];
+        let isPointerDown = false;
+        let pointerX = 0;
+        let pointerY = 0;
+
+        // Background twinkle stars
+        function createStars() {
+            stars = [];
+            const numStars = 60;
+            for(let i = 0; i < numStars; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    radius: Math.random() * 1.5,
+                    opacity: Math.random(),
+                    speed: 0.01 + Math.random() * 0.015
+                });
+            }
+        }
+
+        // Resize Canvas properly
+        function resize() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            canvas.width = width * (window.devicePixelRatio || 1);
+            canvas.height = height * (window.devicePixelRatio || 1);
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+            createStars();
+        }
+
+        window.addEventListener('resize', resize);
+
+        // Particle Class definition
+        class Particle {
+            constructor(x, y, size, color) {
+                this.x = x;
+                this.y = y;
+                this.radius = size * (0.6 + Math.random() * 0.8);
+                // slight scatter on spawn
+                this.vx = (Math.random() - 0.5) * 3;
+                this.vy = (Math.random() - 0.5) * 3;
+                this.color = color;
+                this.life = 1.0;
+                this.decay = 0.004 + Math.random() * 0.008;
+            }
+
+            update(lift, wind, gravityWellActive, wellX, wellY) {
+                this.vx *= 0.985;
+                this.vy *= 0.985;
+
+                if (gravityWellActive) {
+                    // Vortex / Gravity pull coordinates
+                    const dx = wellX - this.x;
+                    const dy = wellY - this.y;
+                    const distSq = dx * dx + dy * dy + 800; // soft denominator factor
+                    const dist = Math.sqrt(distSq);
+                    
+                    // Gravitational Pull F = GM/r^2
+                    const pullMagnitude = 180 / distSq;
+                    const pullX = (dx / dist) * pullMagnitude;
+                    const pullY = (dy / dist) * pullMagnitude;
+                    
+                    // Centripetal Swirl Vector
+                    const swirlStrength = 1.6;
+                    const swirlX = (-dy / dist) * pullMagnitude * swirlStrength;
+                    const swirlY = (dx / dist) * pullMagnitude * swirlStrength;
+                    
+                    this.vx += pullX + swirlX;
+                    this.vy += pullY + swirlY;
+                } else {
+                    // Standard Anti-Gravity Lift (Upward Acceleration) & Wind Drift
+                    this.vy -= lift * 0.15;
+                    this.vx += wind * 0.055;
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+            }
+
+            draw(context) {
+                context.save();
+                context.globalAlpha = this.life;
+                context.beginPath();
+                context.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                context.fillStyle = this.color;
+                context.shadowBlur = this.radius * 2.5;
+                context.shadowColor = this.color;
+                context.fill();
+                context.restore();
+            }
+        }
+
+        // Pointer event utility to extract logical client dimensions
+        function getPointerCoords(e) {
+            let clientX, clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            return { x: clientX, y: clientY };
+        }
+
+        function triggerSpawn(x, y) {
+            const count = parseInt(sliderSpawn.value);
+            const size = parseFloat(sliderSize.value);
+            const colors = themes[activeTheme].colors;
+            for(let i = 0; i < count; i++) {
+                const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                particles.push(new Particle(x, y, size, randomColor));
+            }
+        }
+
+        // Mouse/Touch Interaction Event Listeners
+        window.addEventListener('mousedown', (e) => {
+            // Ignore panel clicks
+            if (e.target.closest('.control-panel') || e.target.closest('#panel-toggle')) return;
+            isPointerDown = true;
+            const coords = getPointerCoords(e);
+            pointerX = coords.x;
+            pointerY = coords.y;
+
+            if (toggleVortex.checked) {
+                vortexIndicator.style.display = 'block';
+                vortexIndicator.style.left = pointerX + 'px';
+                vortexIndicator.style.top = pointerY + 'px';
+            } else {
+                triggerSpawn(pointerX, pointerY);
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isPointerDown) return;
+            const coords = getPointerCoords(e);
+            pointerX = coords.x;
+            pointerY = coords.y;
+
+            if (toggleVortex.checked) {
+                vortexIndicator.style.left = pointerX + 'px';
+                vortexIndicator.style.top = pointerY + 'px';
+            } else {
+                triggerSpawn(pointerX, pointerY);
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isPointerDown = false;
+            vortexIndicator.style.display = 'none';
+        });
+
+        // Touch Devices support
+        window.addEventListener('touchstart', (e) => {
+            if (e.target.closest('.control-panel') || e.target.closest('#panel-toggle')) return;
+            isPointerDown = true;
+            const coords = getPointerCoords(e);
+            pointerX = coords.x;
+            pointerY = coords.y;
+
+            if (toggleVortex.checked) {
+                vortexIndicator.style.display = 'block';
+                vortexIndicator.style.left = pointerX + 'px';
+                vortexIndicator.style.top = pointerY + 'px';
+            } else {
+                triggerSpawn(pointerX, pointerY);
+            }
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!isPointerDown) return;
+            const coords = getPointerCoords(e);
+            pointerX = coords.x;
+            pointerY = coords.y;
+
+            if (toggleVortex.checked) {
+                vortexIndicator.style.left = pointerX + 'px';
+                vortexIndicator.style.top = pointerY + 'px';
+            } else {
+                triggerSpawn(pointerX, pointerY);
+            }
+        });
+
+        window.addEventListener('touchend', () => {
+            isPointerDown = false;
+            vortexIndicator.style.display = 'none';
+        });
+
+        // Clear Screen
+        btnClear.addEventListener('click', () => {
+            particles = [];
+        });
+
+        // Initial setup execution
+        resize();
+
+        // Main Animation Physics Loop
+        function animate() {
+            // Draw dark background with trail effect (motion blur)
+            ctx.fillStyle = 'rgba(3, 3, 12, 0.18)';
+            ctx.fillRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
+
+            // Twinkle background stars
+            ctx.fillStyle = '#ffffff';
+            for (let i = 0; i < stars.length; i++) {
+                const star = stars[i];
+                star.opacity += star.speed;
+                if(star.opacity > 1 || star.opacity < 0.2) {
+                    star.speed = -star.speed;
+                }
+                ctx.save();
+                ctx.globalAlpha = star.opacity;
+                ctx.beginPath();
+                ctx.arc(star.x / window.devicePixelRatio, star.y / window.devicePixelRatio, star.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Slowly tick ambient background boundary particles (spawning at the bottom edge)
+            if (Math.random() < 0.4) {
+                const count = Math.floor(Math.random() * 2) + 1;
+                const size = parseFloat(sliderSize.value);
+                const colors = themes[activeTheme].colors;
+                const width = canvas.width / window.devicePixelRatio;
+                const height = canvas.height / window.devicePixelRatio;
+                for(let i = 0; i < count; i++) {
+                    const spawnX = Math.random() * width;
+                    const spawnY = height + 10;
+                    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                    particles.push(new Particle(spawnX, spawnY, size, randomColor));
+                }
+            }
+
+            // Retrieve live slider parameters
+            const liftValue = parseFloat(sliderGravity.value);
+            const windValue = parseFloat(sliderWind.value);
+            const gravityWellActive = toggleVortex.checked && isPointerDown;
+
+            // Render, simulate, and filter out dead particles
+            particles = particles.filter(p => {
+                p.update(liftValue, windValue, gravityWellActive, pointerX, pointerY);
+                p.draw(ctx);
+                
+                // Keep particle if alive and inside canvas bounds (allowing some buffer overflow)
+                const isOutOfX = p.x < -50 || p.x > (canvas.width / window.devicePixelRatio) + 50;
+                const isOutOfY = p.y < -50 || p.y > (canvas.height / window.devicePixelRatio) + 50;
+                return p.life > 0 && !isOutOfX && !isOutOfY;
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        // Run Engine
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>

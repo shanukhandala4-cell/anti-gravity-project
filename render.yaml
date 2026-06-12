@@ -1,0 +1,4 @@
+staticSites:
+  - name: anti-gravity-simulation-engine
+    buildCommand: ""
+    publishDir: "."
