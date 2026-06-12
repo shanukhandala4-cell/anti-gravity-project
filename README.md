@@ -21,7 +21,7 @@ Particles spawn dynamically at the bottom boundary and accelerate upwards under 
 ## Live Deployments
 
 - **GitHub Repository**: [https://github.com/shanukhandala4-cell/anti-gravity-project](https://github.com/shanukhandala4-cell/anti-gravity-project)
-- **Live Netlify App**: (Updated dynamically on deploy)
+- **Live Netlify App**: [https://anti-gravity-simulation-engine.netlify.app](https://anti-gravity-simulation-engine.netlify.app)
 
 ## Blueprint Configuration
 
